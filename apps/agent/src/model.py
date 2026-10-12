@@ -14,8 +14,10 @@ DEFAULT_MODEL = "chat-latest"
 
 # Widget generation (generateSandboxedUi tool args) routinely needs tens of
 # thousands of output tokens; too-small limits truncate args mid-stream and
-# the widget is stuck in its preview sandbox. Match the local model's cap.
-MAX_TOKENS = 32768
+# the widget is stuck in its preview sandbox. GLM thinking can consume a
+# large share of the budget before the tool call starts. The local vLLM
+# deployment serves glm53f with max_model_len=262144 and accepts this cap.
+MAX_TOKENS = 98304
 
 
 def build_model(*, allow_unconfigured: bool = False) -> BaseChatModel:

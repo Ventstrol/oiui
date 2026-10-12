@@ -12,6 +12,11 @@ export const PREVIEW_FRAME_CONTENT = "<head></head><body></body>";
 
 const DESIGN_SYSTEM_CSS = `${THEME_CSS}\n${SVG_CLASSES_CSS}\n${FORM_STYLES_WITH_STAGGER_CSS}`;
 const DESIGN_SYSTEM_STYLE_TAG = `<style>${DESIGN_SYSTEM_CSS}</style>`;
+// Generated css often styles error/status panels with `display: flex`, which
+// beats the UA rule behind the `hidden` attribute and leaves failure overlays
+// permanently visible. The !important guard survives any generated css.
+const HIDDEN_GUARD_STYLE_TAG =
+  "<style>[hidden] { display: none !important; }</style>";
 const OVERFLOW_HIDDEN_STYLE_TAG =
   "<style>html, body { overflow: hidden !important; }</style>";
 
@@ -56,6 +61,7 @@ export function buildFinalFrameContent(html: string, css?: string): string {
     IMPORTMAP_SCRIPT_TAG +
     TRIP_ANIMATOR_SCRIPT +
     DESIGN_SYSTEM_STYLE_TAG +
+    HIDDEN_GUARD_STYLE_TAG +
     (css ? `<style>${css}</style>` : "");
   const withHead = ensureHead(html);
   const openTag = withHead.match(/<head[^>]*>/i);
@@ -74,7 +80,7 @@ export function buildPreviewHeadContent(
   css?: string,
   previewStyles?: string
 ): string {
-  const parts = [OVERFLOW_HIDDEN_STYLE_TAG, DESIGN_SYSTEM_STYLE_TAG];
+  const parts = [OVERFLOW_HIDDEN_STYLE_TAG, DESIGN_SYSTEM_STYLE_TAG, HIDDEN_GUARD_STYLE_TAG];
   if (css) parts.push(`<style>${css}</style>`);
   if (previewStyles) parts.push(previewStyles);
   return parts.join("");
