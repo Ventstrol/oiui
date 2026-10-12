@@ -47,6 +47,23 @@ describe("ThreadSwitcher", () => {
     expect(select).toHaveTextContent("Weather in Bonn · 1d ago");
   });
 
+  it("renders relative ages from unix-seconds updated_at (agent contract)", () => {
+    // agent stores unix seconds; Date.prototype.getTime is milliseconds
+    setup({
+      threads: [
+        {
+          thread_id: "t-sec",
+          title: "Seconds thread",
+          updated_at: Math.floor(Date.now() / 1000) - 120,
+          message_count: 1,
+        },
+      ],
+      activeThreadId: "t-sec",
+    });
+    const select = screen.getByRole("combobox", { name: "Switch chat thread" });
+    expect(select).toHaveTextContent("Seconds thread · 2m ago");
+  });
+
   it("shows a placeholder option when the active thread is not in the list yet", () => {
     setup({ activeThreadId: "t-fresh", threads: [] });
     const select = screen.getByRole("combobox", { name: "Switch chat thread" });

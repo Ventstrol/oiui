@@ -13,8 +13,10 @@ export interface ThreadSwitcherProps {
 }
 
 // Relative age like "5m ago"; falls back to the locale date for older threads.
-function relativeTime(iso: string): string {
-  const then = new Date(iso).getTime();
+// updated_at is unix seconds (agent contract); strings pass through Date.
+function relativeTime(updatedAt: number | string): string {
+  const then =
+    typeof updatedAt === "number" ? updatedAt * 1000 : new Date(updatedAt).getTime();
   if (Number.isNaN(then)) return "";
   const seconds = Math.max(0, Math.round((Date.now() - then) / 1000));
   if (seconds < 60) return "just now";
@@ -24,7 +26,7 @@ function relativeTime(iso: string): string {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   if (days < 30) return `${days}d ago`;
-  return new Date(iso).toLocaleDateString();
+  return new Date(then).toLocaleDateString();
 }
 
 export function ThreadSwitcher({
