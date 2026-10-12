@@ -96,14 +96,29 @@ class CredentialScopedAgent(LangGraphAGUIAgent):
             _capture_snapshot(input, event)
 
 
+def _message_text(message):
+    """Plain text of a message; multimodal lists contribute their text parts."""
+    content = message.get('content') if isinstance(message, dict) else getattr(message, 'content', None)
+    if isinstance(content, list):
+        parts = []
+        for item in content:
+            part = item.get('text') if isinstance(item, dict) else getattr(item, 'text', None)
+            if part:
+                parts.append(str(part))
+        return ' '.join(parts)
+    return str(content) if content else ''
+
+
 def _snapshot_title(messages):
     for message in messages or []:
         role = message.get('role') if isinstance(message, dict) else getattr(message, 'role', None)
         if role == 'user':
-            content = message.get('content') if isinstance(message, dict) else getattr(message, 'content', None)
-            if content:
-                return ' '.join(str(content).split())[:80]
+            text = _message_text(message)
+            if text:
+                return ' '.join(text.split())[:80]
     return ''
+
+
 
 
 def _capture_snapshot(input, event):
