@@ -23,7 +23,7 @@ from src.credentials import (
     validate_credentials,
     server_credentials_available,
 )
-from src.visualization_router import JevVisualizationMiddleware
+from src.visualization_router import JevVisualizationMiddleware  # noqa: F401  (enabled via JEV_ENABLED=1)
 from src.skill_backend import SKILL_SOURCES, build_agent_backend
 from src.query import query_data
 from src.todos import AgentState, todo_tools
@@ -38,9 +38,9 @@ agent = create_deep_agent(
     model=CredentialScopedModel(fallback=build_model(allow_unconfigured=True)),
     tools=[query_data, get_trip_stop_images, plan_visualization, *todo_tools, generate_form],
     middleware=[
+        *([JevVisualizationMiddleware()] if os.environ.get("JEV_ENABLED", "").strip().lower() in {"1", "true", "yes"} else []),
         RequestModelMiddleware(),
         CopilotKitMiddleware(),
-        JevVisualizationMiddleware(),
         ConsecutiveSystemMessagesMiddleware(),
     ],
     context_schema=AgentState,
