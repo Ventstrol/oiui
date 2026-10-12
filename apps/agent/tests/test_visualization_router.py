@@ -10,16 +10,7 @@ from langchain_core.messages import SystemMessage
 
 
 def response(choice):
-    return {
-        "answers": {
-            "visualization": {
-                "type": "choice",
-                "choice": choice,
-                "confidence": 0.9,
-                "probabilities": {choice: 0.9},
-            }
-        }
-    }
+    return {"choice": choice, "confidence": 0.9}
 
 
 @pytest.mark.parametrize(
@@ -39,7 +30,7 @@ def test_valid_decisions_map_to_exact_renderer(choice, renderer):
 
 @pytest.mark.parametrize(
     "raw",
-    [{}, response("invented"), {"answers": {"visualization": {"choice": "table"}}}],
+    [{}, response("invented"), {"choice": "table", "confidence": "high"}],
 )
 def test_bad_decisions_fail_loudly(raw):
     with pytest.raises(ValueError, match="Jev"):
@@ -110,8 +101,8 @@ def test_route_filters_renderers_preserving_data_tools(choice, allowed):
 def test_missing_key_is_actionable(monkeypatch):
     from src.visualization_router import request_options
 
-    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
-    with pytest.raises(ValueError, match="TYPESAFE_API_KEY"):
+    monkeypatch.delenv("JEV_API_KEY", raising=False)
+    with pytest.raises(ValueError, match="JEV_API_KEY"):
         request_options([])
 
 
@@ -128,7 +119,7 @@ def test_timeout_is_actionable_without_secret_headers(monkeypatch):
     import httpx
     import src.visualization_router as router
 
-    monkeypatch.setenv("TYPESAFE_API_KEY", "private-test-value")
+    monkeypatch.setenv("JEV_API_KEY", "private-test-value")
 
     def timeout(*args, **kwargs):
         raise httpx.ReadTimeout("private-test-value")

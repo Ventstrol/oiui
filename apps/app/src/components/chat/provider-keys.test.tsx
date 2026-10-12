@@ -92,9 +92,9 @@ describe("memory-only provider keys", () => {
     vi.mocked(fetch).mockImplementation(() => new Promise(() => {}));
     setup(); enterKeys(); fireEvent.click(screen.getByText("Test connection"));
     await waitFor(() => expect(fetch).toHaveBeenCalled());
-    const options = vi.mocked(fetch).mock.calls[0][1];
+    const postCall = vi.mocked(fetch).mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === "POST");
     expect(screen.getByText("Checking both providers…")).toBeInTheDocument();
     fireEvent.click(screen.getByText("Cancel"));
-    expect(options?.signal?.aborted).toBe(true);
+    expect((postCall?.[1] as RequestInit | undefined)?.signal?.aborted).toBe(true);
   });
 });

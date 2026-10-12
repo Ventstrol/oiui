@@ -11,6 +11,21 @@ const reply = (body: object, status: number) => Response.json(body, {
   status, headers: { "Cache-Control": "no-store" },
 });
 
+export async function GET() {
+  try {
+    const base = normalizeLanggraphUrl(process.env.LANGGRAPH_DEPLOYMENT_URL);
+    const response = await fetch(`${base.replace(/\/$/, "")}/credentials/status`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) return reply({ server: false }, 200);
+    const data = await response.json();
+    return reply({ server: data?.server === true }, 200);
+  } catch {
+    return reply({ server: false }, 200);
+  }
+}
+
 export async function POST(request: Request) {
   let credentials;
   try {

@@ -143,14 +143,16 @@ Prerequisites: Node.js 22+, pnpm 9+, Python 3.12+, and [uv](https://docs.astral.
 git clone https://github.com/CopilotKit/OpenIntelligentUI.git
 cd OpenIntelligentUI
 make setup
-# Optional: set shared OPENAI_API_KEY and TYPESAFE_API_KEY in apps/agent/.env
+# Optional: set shared provider keys in apps/agent/.env
+#   OPENAI_API_KEY / OPENAI_BASE_URL / LLM_MODEL  — any OpenAI-compatible endpoint
+#   JEV_API_KEY (e.g. an OpenRouter key) / JEV_MODEL (default typesafe/jev-router)
 # Or use API keys in the chat header after starting the app
 make dev
 ```
 
 Open the [app](http://localhost:3000). The [agent health endpoint](http://localhost:8123/health) confirms the agent service is running. See [Getting started](docs/getting-started.md) for configuration and verification.
 
-The default model is `chat-latest`, OpenAI’s documented alias for the latest ChatGPT Instant model, requiring `OPENAI_API_KEY`. Jev (`jev-latest`, requiring `TYPESAFE_API_KEY`) selects the renderer and visualization for each user turn. Basic tables use A2UI; charts, diagrams, calculators, and maps use Open Generative UI. Provider failures are surfaced instead of silently substituting another router or model. See [Visualization routing](docs/visualization-routing.md).
+The default model is `chat-latest`, OpenAI’s documented alias for the latest ChatGPT Instant model, requiring `OPENAI_API_KEY`. Any OpenAI-compatible endpoint works too: set `OPENAI_BASE_URL` and `LLM_MODEL` (claude-* routes to Anthropic). Jev selects the renderer and visualization for each user turn; it runs through OpenRouter by default (`JEV_MODEL=typesafe/jev-router`, `JEV_API_KEY`). Basic tables use A2UI; charts, diagrams, calculators, and maps use Open Generative UI. Provider failures are surfaced instead of silently substituting another router or model. See [Visualization routing](docs/visualization-routing.md).
 
 ## Use your own API keys
 

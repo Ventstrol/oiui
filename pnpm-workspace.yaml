@@ -2,3 +2,5 @@ packages:
   - "apps/app"
   - "apps/mcp"
   - "packages/*"
+patchedDependencies:
+  "@copilotkit/runtime@1.55.2-next.1": patches/@copilotkit__runtime@1.55.2-next.1.patch

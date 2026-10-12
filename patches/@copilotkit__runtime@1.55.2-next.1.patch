@@ -1,0 +1,26 @@
+diff --git a/dist/v2/runtime/open-generative-ui-middleware.mjs b/dist/v2/runtime/open-generative-ui-middleware.mjs
+index 822e50c70c4ebf3e6766fd93c2856a2aebec036e..666addd67e18b1117a29b9ed84a3c2ba598507b4 100644
+--- a/dist/v2/runtime/open-generative-ui-middleware.mjs
++++ b/dist/v2/runtime/open-generative-ui-middleware.mjs
+@@ -21,7 +21,20 @@ var ArgsParser = class {
+ 		this.htmlArrayEmitted = false;
+ 		this.params = {};
+ 		this.messageId = `${toolCallId}-activity`;
+-		this.onEvent = onEvent;
++		// Emit the activity snapshot BEFORE the first delta. The snapshot is
++		// otherwise only emitted when `initialHeight` completes; models that
++		// stream that key late let css/html deltas reach the client before
++		// the snapshot, and the snapshot then resets the client-side
++		// activity content, losing the streamed widget.
++		this.snapshotQueued = false;
++		const emitFirstSnapshot = (event) => {
++			if (!this.snapshotQueued && event.type !== EventType.ACTIVITY_SNAPSHOT) {
++				this.snapshotQueued = true;
++				this.emitSnapshot();
++			}
++			onEvent(event);
++		};
++		this.onEvent = emitFirstSnapshot;
+ 		this.parser = clarinet.parser();
+ 		this.parser.onopenobject = (key) => {
+ 			this.depth++;

@@ -48,7 +48,7 @@ def parse_credentials(headers):
 def server_credentials_available():
     model = os.environ.get('LLM_MODEL', 'chat-latest').strip()
     key = 'ANTHROPIC_API_KEY' if model.startswith('claude-') else 'OPENAI_API_KEY'
-    return bool(os.environ.get(key, '').strip() and os.environ.get('TYPESAFE_API_KEY', '').strip())
+    return bool(os.environ.get(key, '').strip() and os.environ.get('JEV_API_KEY', '').strip())
 
 
 class CredentialsMiddleware:

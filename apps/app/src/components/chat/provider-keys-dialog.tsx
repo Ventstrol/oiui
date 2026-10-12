@@ -5,7 +5,7 @@ import { useProviderKeys } from "./provider-keys";
 import "./provider-keys.css";
 
 export function ProviderKeysDialog({ onClose, disabled = false }: { onClose: () => void; disabled?: boolean }) {
-  const { hasKeys, save, clear } = useProviderKeys();
+  const { hasKeys, ownKeys, save, clear } = useProviderKeys();
   const dialog = useRef<HTMLDialogElement>(null);
   const request = useRef<AbortController | null>(null);
   const [openai, setOpenai] = useState("");
@@ -71,7 +71,7 @@ export function ProviderKeysDialog({ onClose, disabled = false }: { onClose: () 
         {error && <p role="alert">{error}</p>}
         <p role="status" aria-live="polite">{pending ? "Checking both providers…" : validated ? "Both keys work. Save to start a new chat." : hasKeys ? "Your own keys are active for this session." : "Both keys are required to start chatting."}</p>
         <div className="provider-keys-actions">
-          {hasKeys && <button type="button" disabled={pending || disabled} onClick={() => { clear(); onClose(); }}>Clear keys</button>}
+          {ownKeys && <button type="button" disabled={pending || disabled} onClick={() => { clear(); onClose(); }}>Clear keys</button>}
           <button type="button" onClick={onClose}>Cancel</button>
           <button type="submit" disabled={pending || disabled || !openai.trim() || !jev.trim()}>Test connection</button>
           <button type="button" className="provider-keys-save" disabled={!validated || pending || disabled} onClick={() => { save({ openai: openai.trim(), jev: jev.trim() }); onClose(); }}>Save keys</button>

@@ -8,11 +8,14 @@ install: ## Install all dependencies (Node + Python)
 
 setup: install ## Full setup: install deps and create .env from template
 	@if [ ! -f apps/agent/.env ]; then \
-		printf '%s\n' 'OPENAI_API_KEY=' 'TYPESAFE_API_KEY=' 'LLM_MODEL=chat-latest' 'JEV_MODEL=jev-latest' > apps/agent/.env; \
-		echo "Created apps/agent/.env — set OPENAI_API_KEY and TYPESAFE_API_KEY"; \
+		printf '%s\n' 'OPENAI_API_KEY=' 'JEV_API_KEY=' 'LLM_MODEL=chat-latest' 'OPENAI_BASE_URL=' 'JEV_MODEL=typesafe/jev-router' > apps/agent/.env; \
+		echo "Created apps/agent/.env — set OPENAI_API_KEY and JEV_API_KEY"; \
 	else \
 		echo "apps/agent/.env already exists, skipping"; \
 	fi
+	@uv run --directory apps/agent python ../../scripts/patch-ag-ui-finish-reason.py
+
+dev-app: ## Start Next.js frontend only (http://localhost:3000)
 
 dev: ## Start all services (frontend + agent + mcp)
 	pnpm dev

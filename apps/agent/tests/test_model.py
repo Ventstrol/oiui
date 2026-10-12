@@ -60,11 +60,23 @@ def test_main_uses_build_model():
     assert "ChatOpenAI" not in main_src.read_text()
 
 
-@pytest.mark.parametrize("name", ["", "   ", "gemini-example", "typo-model"])
-def test_invalid_model_configuration_fails_before_client_creation(monkeypatch, name):
+@pytest.mark.parametrize("name", ["glm53f", "typo-model", "gemini-example"])
+def test_non_prefixed_models_route_to_openai_compatible_endpoint(monkeypatch, name):
+    # Unknown names are the provider's problem now: the agent builds a
+    # ChatOpenAI client against OPENAI_BASE_URL and fails at request time.
     monkeypatch.setenv("LLM_MODEL", name)
-    with pytest.raises(ValueError, match="LLM_MODEL"):
-        build_model()
+    monkeypatch.setenv("OPENAI_BASE_URL", "http://gateway.example/v1")
+    model = build_model()
+    assert isinstance(model, ChatOpenAI)
+    assert model.model_name == name
+    assert model.openai_api_base == "http://gateway.example/v1"
+
+
+def test_default_base_url_targets_openai(monkeypatch):
+    monkeypatch.setenv("LLM_MODEL", "chat-latest")
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    # None defers to the OpenAI SDK default (https://api.openai.com/v1).
+    assert build_model().openai_api_base is None
 
 
 @pytest.mark.parametrize(

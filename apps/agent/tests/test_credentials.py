@@ -68,7 +68,7 @@ def test_request_model_and_jev_override_without_environment_mutation(monkeypatch
     from src.model import request_model
     from src.visualization_router import request_options
     monkeypatch.setenv('OPENAI_API_KEY', 'server-openai')
-    monkeypatch.setenv('TYPESAFE_API_KEY', 'server-jev')
+    monkeypatch.setenv('JEV_API_KEY', 'server-jev')
     monkeypatch.setenv('JEV_MODEL', 'server-model')
     token = current_credentials.set(Credentials('visitor-openai', 'visitor-jev'))
     try:
@@ -76,7 +76,7 @@ def test_request_model_and_jev_override_without_environment_mutation(monkeypatch
         assert model.model_name == 'chat-latest'
         assert model.openai_api_key.get_secret_value() == 'visitor-openai'
         assert request_options([])['headers']['Authorization'] == 'Bearer visitor-jev'
-        assert request_options([])['json']['model'] == 'jev-latest'
+        assert request_options([])['json']['model'] == 'server-model'
         assert os.environ['OPENAI_API_KEY'] == 'server-openai'
     finally:
         current_credentials.reset(token)
@@ -162,7 +162,7 @@ def test_agent_stream_keeps_credentials_out_of_checkpoints_and_separates_threads
 def test_main_starts_without_server_credentials(monkeypatch):
     import subprocess
     import sys
-    environment = {k: v for k, v in os.environ.items() if k not in {'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'TYPESAFE_API_KEY', 'LLM_MODEL'}}
+    environment = {k: v for k, v in os.environ.items() if k not in {'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'JEV_API_KEY', 'LLM_MODEL'}}
     environment['PYTHON_DOTENV_DISABLED'] = '1'
     result = subprocess.run([sys.executable, '-c', "from fastapi.testclient import TestClient; from main import app; c=TestClient(app); assert c.get('/health').status_code == 200; r=c.post('/', json={}); assert r.status_code == 401; assert r.json()['code'] == 'credentials_required'"], env=environment, capture_output=True, text=True)
     assert result.returncode == 0, result.stderr

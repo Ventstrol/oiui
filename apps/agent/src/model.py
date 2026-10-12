@@ -12,21 +12,15 @@ from langchain_core.language_models.chat_models import BaseChatModel
 
 DEFAULT_MODEL = "chat-latest"
 
-# langchain-anthropic defaults max_tokens to 4096, which truncates
-# generateSandboxedUi tool args mid-stream (jsFunctions/jsExpressions never
-# arrive and the widget is stuck in its preview sandbox). Widget generation
-# routinely needs tens of thousands of output tokens.
-MAX_TOKENS = 64000
+# Widget generation (generateSandboxedUi tool args) routinely needs tens of
+# thousands of output tokens; too-small limits truncate args mid-stream and
+# the widget is stuck in its preview sandbox. Match the local model's cap.
+MAX_TOKENS = 32768
 
 
 def build_model(*, allow_unconfigured: bool = False) -> BaseChatModel:
     model_name = os.environ.get("LLM_MODEL", DEFAULT_MODEL).strip()
-    is_openai = model_name == "chat-latest" or model_name.startswith("gpt-")
-    if not is_openai and not model_name.startswith("claude-"):
-        raise ValueError(
-            "LLM_MODEL must name a supported provider: claude-* (Anthropic) "
-            "or gpt-*/chat-latest (OpenAI). Unset LLM_MODEL to use the default."
-        )
+    is_openai = not model_name.startswith("claude-")
     key_name = "OPENAI_API_KEY" if is_openai else "ANTHROPIC_API_KEY"
     if not os.environ.get(key_name, "").strip():
         if allow_unconfigured:
@@ -36,10 +30,15 @@ def build_model(*, allow_unconfigured: bool = False) -> BaseChatModel:
             "Set it in the agent environment and restart the agent."
         )
     if is_openai:
-        # chat-latest follows ChatGPT Instant; explicit gpt-* pins also work.
+        # Any OpenAI-compatible endpoint works: set OPENAI_BASE_URL
+        # (e.g. a local llama-swap/vLLM gateway) and LLM_MODEL to its model id.
         from langchain_openai import ChatOpenAI
 
-        return ChatOpenAI(model=model_name)
+        return ChatOpenAI(
+            model=model_name,
+            base_url=os.environ.get("OPENAI_BASE_URL", "").strip() or None,
+            max_tokens=MAX_TOKENS,
+        )
     return ChatAnthropic(
         model=model_name,
         max_tokens=MAX_TOKENS,
@@ -128,7 +127,14 @@ class RequestModelMiddleware(AgentMiddleware):
 
 
 class CredentialScopedModel(BaseChatModel):
-    """Route DeepAgents' internal summary/subagent model calls through BYOK too."""
+    """Route DeepAgents' internal summary/subagent model calls through BYOK too.
+
+    A transparent delegate, not a call-time wrapper: the public API resolves
+    the inner model via request_model() and calls it directly. Wrapping (the
+    previous _astream/_stream approach) re-emits every streamed chunk through
+    both the inner and outer runs, which duplicates AG-UI TOOL_CALL_START and
+    TEXT_MESSAGE_CONTENT events on the wire and corrupts streamed tool args.
+    """
 
     fallback: BaseChatModel = Field(exclude=True)
 
@@ -136,44 +142,36 @@ class CredentialScopedModel(BaseChatModel):
     def _llm_type(self):
         return "credential-scoped"
 
-    def bind_tools(self, tools, **kwargs):
-        return self.bind(_credential_tools=tools, _credential_tool_options=kwargs)
+    def _resolved(self) -> BaseChatModel:
+        return request_model(self.fallback)
 
-    def _target(self, kwargs):
-        model = request_model(self.fallback)
-        options = dict(kwargs)
-        tools = options.pop("_credential_tools", None)
-        tool_options = options.pop("_credential_tool_options", {})
-        if tools is not None:
-            model = model.bind_tools(tools, **tool_options)
-        return model, options
+    def bind(self, *args, **kwargs):
+        return self._resolved().bind(*args, **kwargs)
+
+    def bind_tools(self, tools, **kwargs):
+        return self._resolved().bind_tools(tools, **kwargs)
+
+    def invoke(self, *args, **kwargs):
+        with provider_error_boundary():
+            return self._resolved().invoke(*args, **kwargs)
+
+    async def ainvoke(self, *args, **kwargs):
+        with provider_error_boundary():
+            return await self._resolved().ainvoke(*args, **kwargs)
+
+    def stream(self, *args, **kwargs):
+        return self._stream_inner(self._resolved().stream(*args, **kwargs))
+
+    async def astream(self, *args, **kwargs):
+        with provider_error_boundary():
+            async for chunk in self._resolved().astream(*args, **kwargs):
+                yield chunk
+
+    def _stream_inner(self, inner):
+        with provider_error_boundary():
+            yield from inner
 
     def _generate(self, messages, stop=None, run_manager=None, **kwargs):
         with provider_error_boundary():
-            model, options = self._target(kwargs)
-            message = model.invoke(messages, stop=stop, **options)
+            message = self._resolved().invoke(messages, stop=stop, **kwargs)
             return ChatResult(generations=[ChatGeneration(message=message)])
-
-    async def _agenerate(self, messages, stop=None, run_manager=None, **kwargs):
-        with provider_error_boundary():
-            model, options = self._target(kwargs)
-            message = await model.ainvoke(messages, stop=stop, **options)
-            return ChatResult(generations=[ChatGeneration(message=message)])
-
-    def _stream(self, messages, stop=None, run_manager=None, **kwargs):
-        with provider_error_boundary():
-            model, options = self._target(kwargs)
-            for chunk in model.stream(messages, stop=stop, **options):
-                yield ChatGenerationChunk(message=as_chunk(chunk))
-
-    async def _astream(self, messages, stop=None, run_manager=None, **kwargs):
-        with provider_error_boundary():
-            model, options = self._target(kwargs)
-            async for chunk in model.astream(messages, stop=stop, **options):
-                yield ChatGenerationChunk(message=as_chunk(chunk))
-
-
-def as_chunk(message):
-    if isinstance(message, AIMessageChunk):
-        return message
-    return AIMessageChunk(**message.model_dump(exclude={"type"}))
