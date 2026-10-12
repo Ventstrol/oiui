@@ -1,5 +1,4 @@
 """Ephemeral provider credentials, scoped to the complete ASGI stream lifetime."""
-
 import asyncio
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -94,6 +93,46 @@ class CredentialScopedAgent(LangGraphAGUIAgent):
             if hasattr(event, 'thread_id'):
                 event = event.model_copy(update={'thread_id': original})
             yield event
+            _capture_snapshot(input, event)
+
+
+def _snapshot_title(messages):
+    for message in messages or []:
+        role = message.get('role') if isinstance(message, dict) else getattr(message, 'role', None)
+        if role == 'user':
+            content = message.get('content') if isinstance(message, dict) else getattr(message, 'content', None)
+            if content:
+                return ' '.join(str(content).split())[:80]
+    return ''
+
+
+def _capture_snapshot(input, event):
+    """Persist a thread snapshot from an AG-UI event; never break the stream."""
+    try:
+        data = event
+        if isinstance(data, str):
+            text = data.strip()
+            if not text.startswith('data:'):
+                return
+            data = json.loads(text[len('data:'):].strip())
+        elif not isinstance(data, dict):
+            dumped = getattr(data, 'model_dump', None)
+            data = dumped() if callable(dumped) else None
+        if not isinstance(data, dict):
+            return
+        if data.get('type') != 'MESSAGES_SNAPSHOT':
+            return
+        messages = data.get('messages') or []
+        messages = [dict(m) if isinstance(m, dict) else m.model_dump() for m in messages]
+        thread_id = getattr(input, 'threadId', None) or getattr(input, 'thread_id', None)
+        if isinstance(input, dict):
+            thread_id = input.get('threadId') or input.get('thread_id')
+        if not thread_id:
+            return
+        from src.thread_store import get_thread_store
+        get_thread_store().upsert(thread_id, _snapshot_title(messages), messages)
+    except Exception:
+        pass
 
 
 async def validate_credentials(credentials):

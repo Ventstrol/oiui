@@ -23,6 +23,7 @@ from src.credentials import (
     validate_credentials,
     server_credentials_available,
 )
+from src.thread_store import get_thread_store
 from src.visualization_router import JevVisualizationMiddleware  # noqa: F401  (enabled via JEV_ENABLED=1)
 from src.skill_backend import SKILL_SOURCES, build_agent_backend
 from src.query import query_data
@@ -70,6 +71,28 @@ def health():
 @app.get("/credentials/status")
 def credentials_status():
     return {"ok": True, "server": server_credentials_available()}
+
+
+
+@app.get("/threads")
+def list_threads():
+    return get_thread_store().list_threads()
+
+
+@app.get("/threads/{thread_id}")
+def get_thread(thread_id: str):
+    thread = get_thread_store().get(thread_id)
+    if thread is None:
+        return JSONResponse({"detail": "not found"}, status_code=404)
+    return thread
+
+
+@app.delete("/threads/{thread_id}")
+def delete_thread(thread_id: str):
+    if not get_thread_store().delete(thread_id):
+        return JSONResponse({"detail": "not found"}, status_code=404)
+    return {"ok": True}
+
 
 add_langgraph_fastapi_endpoint(
     app=app,

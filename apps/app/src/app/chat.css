@@ -203,3 +203,13 @@
   overflow-anchor: none;
   padding: 0 4px;
 }
+.thread-switcher {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.thread-switcher select {
+  max-width: 220px;
+  font-size: 12px;
+  cursor: pointer;
+}

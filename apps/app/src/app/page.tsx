@@ -7,11 +7,12 @@ import { KeyGatedChatView } from "@/components/chat/key-gated-chat-view";
 import Image from "next/image";
 import { ReaderScrollView } from "@/components/chat/reader-scroll-view";
 import { AnswerMarkdown } from "@/components/chat/answer-markdown";
+import { ThreadSwitcher } from "@/components/chat/thread-switcher";
 import {
-  CopilotChat,
-  useAgent,
-  useCopilotKit,
-} from "@copilotkit/react-core/v2";
+  ThreadHydrationBridge,
+  useThreadHistory,
+} from "@/components/chat/use-thread-history";
+import { CopilotChat, useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
 import { useExampleSuggestions, useGenerativeUIExamples } from "@/hooks";
 
 export default function HomePage() {
@@ -19,6 +20,7 @@ export default function HomePage() {
   useExampleSuggestions();
   const { agent } = useAgent();
   const { newChat, hasKeys, keysOpen, setKeysOpen } = useProviderKeys();
+  const threadHistory = useThreadHistory();
   const { copilotkit } = useCopilotKit();
   const [error, setError] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
@@ -83,9 +85,26 @@ export default function HomePage() {
       <header className="chat-header">
         <span className="chat-name">Open Intelligent UI</span>
         <nav aria-label="Main navigation">
-          <button type="button" onClick={newChat} disabled={agent.isRunning || retrying}>
+          <button
+            type="button"
+            onClick={() => {
+              threadHistory.newThread();
+              newChat();
+            }}
+            disabled={agent.isRunning || retrying}
+          >
             New chat
           </button>
+          <ThreadSwitcher
+            threads={threadHistory.threads}
+            activeThreadId={threadHistory.activeThreadId}
+            loading={threadHistory.loading}
+            disabled={agent.isRunning || retrying}
+            onSwitch={(threadId) => void threadHistory.switchTo(threadId)}
+            onNew={() => threadHistory.newThread()}
+            onRemove={(threadId) => void threadHistory.removeThread(threadId)}
+          />
+
           <button type="button" onClick={() => setKeysOpen(true)} disabled={agent.isRunning || retrying} aria-haspopup="dialog">
             API keys{hasKeys ? " •" : ""}
           </button>
@@ -128,7 +147,13 @@ export default function HomePage() {
           </div>
         )}
         <div className="chat-content" ref={chatRoot}>
+          <ThreadHydrationBridge
+            threadId={threadHistory.activeThreadId}
+            pendingHydrationRef={threadHistory.pendingHydrationRef}
+            hydrateTick={threadHistory.hydrateTick}
+          />
           <CopilotChat
+            threadId={threadHistory.activeThreadId ?? undefined}
             chatView={KeyGatedChatView}
             autoScroll={false}
             scrollView={ReaderScrollView}
