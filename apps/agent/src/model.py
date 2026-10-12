@@ -23,6 +23,9 @@ MAX_TOKENS = 98304
 def build_model(*, allow_unconfigured: bool = False) -> BaseChatModel:
     model_name = os.environ.get("LLM_MODEL", DEFAULT_MODEL).strip()
     is_openai = not model_name.startswith("claude-")
+    # GLM-5 style endpoints think unbounded by default, which can burn most of
+    # the completion budget before a tool call starts. Cap the effort.
+    reasoning_effort = os.environ.get("LLM_REASONING_EFFORT", "high").strip() or None
     key_name = "OPENAI_API_KEY" if is_openai else "ANTHROPIC_API_KEY"
     if not os.environ.get(key_name, "").strip():
         if allow_unconfigured:
@@ -40,6 +43,7 @@ def build_model(*, allow_unconfigured: bool = False) -> BaseChatModel:
             model=model_name,
             base_url=os.environ.get("OPENAI_BASE_URL", "").strip() or None,
             max_tokens=MAX_TOKENS,
+            reasoning_effort=reasoning_effort,
         )
     return ChatAnthropic(
         model=model_name,
