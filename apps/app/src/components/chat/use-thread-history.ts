@@ -12,10 +12,12 @@ export interface ThreadSummary {
   message_count: number;
 }
 
+export type DisplayableContentPart = Record<string, unknown>;
+
 export interface DisplayableMessage {
   id: string;
   role: "user" | "assistant";
-  content: string;
+  content: string | DisplayableContentPart[];
 }
 
 interface PendingHydration {
@@ -27,13 +29,18 @@ interface PendingHydration {
 // other internal roles are owned by the runtime.
 export function filterToDisplayable(messages: unknown): DisplayableMessage[] {
   if (!Array.isArray(messages)) return [];
-  return messages.filter(
-    (message): message is DisplayableMessage =>
-      !!message &&
-      typeof message === "object" &&
-      (message.role === "user" || message.role === "assistant") &&
-      typeof message.content === "string",
-  );
+  return messages.flatMap((message) => {
+    if (!message || typeof message !== "object") return [];
+    if (message.role !== "user" && message.role !== "assistant") return [];
+    // Stored snapshots carry langchain serialization nulls (name,
+    // encrypted_value, ...) which the runtime's zod schema rejects.
+    const cleaned = Object.fromEntries(
+      Object.entries(message).filter(([, value]) => value !== null && value !== undefined),
+    );
+    const { content } = cleaned;
+    if (typeof content !== "string" && !Array.isArray(content)) return [];
+    return [cleaned as unknown as DisplayableMessage];
+  });
 }
 
 function generateThreadId(): string {
@@ -236,7 +243,9 @@ export function ThreadHydrationBridge({
   useEffect(() => {
     const pending = pendingHydrationRef.current;
     if (!pending || pending.threadId !== threadId || pending.messages.length === 0) return;
-    agent.setMessages(pending.messages);
+    // AG-UI's Message union is stricter than our replay filter; the runtime
+    // re-validates the full run body anyway.
+    agent.setMessages(pending.messages as Parameters<typeof agent.setMessages>[0]);
     pendingHydrationRef.current = null;
   }, [agent, threadId, hydrateTick, pendingHydrationRef]);
   return null;

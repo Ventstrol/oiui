@@ -185,18 +185,20 @@ export default function HomePage() {
               threadId={threadHistory.activeThreadId ?? undefined}
               attachments={{
                 enabled: true,
-                accept: "image/*",
+                accept:
+                  "image/*,.excalidraw,.json,.jsonl,.md,.txt,.csv,.tsv,.yaml,.yml,.xml,.html,.svg,.toml,.ini,.sh,.py,.js,.mjs,.ts,.tsx,.jsx,.css,.sql,application/json,text/plain",
                 maxSize: 10 * 1024 * 1024,
               }}
               chatView={KeyGatedChatView}
               autoScroll={false}
               scrollView={ReaderScrollView}
               messageView={{ assistantMessage: { markdownRenderer: AnswerMarkdown } }}
-              onError={() =>
+              onError={(error) => {
+                console.error("CopilotKit run failed:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
                 setError(
                   "Something interrupted the answer. Try again or send another message.",
-                )
-              }
+                );
+              }}
               labels={{
                 welcomeMessageText: "What would you like to explore?",
                 chatInputPlaceholder: "Ask anything…",

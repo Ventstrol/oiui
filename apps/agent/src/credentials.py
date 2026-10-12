@@ -109,6 +109,16 @@ def _message_text(message):
     return str(content) if content else ''
 
 
+def _clean_message(message):
+    """Drop langchain serialization nulls (name, encrypted_value, ...)."""
+    if isinstance(message, dict):
+        return {k: v for k, v in message.items() if v is not None}
+    dumped = getattr(message, 'model_dump', None)
+    if callable(dumped):
+        return {k: v for k, v in dumped().items() if v is not None}
+    return message
+
+
 def _snapshot_title(messages):
     for message in messages or []:
         role = message.get('role') if isinstance(message, dict) else getattr(message, 'role', None)
@@ -138,7 +148,7 @@ def _capture_snapshot(input, event):
         if data.get('type') != 'MESSAGES_SNAPSHOT':
             return
         messages = data.get('messages') or []
-        messages = [dict(m) if isinstance(m, dict) else m.model_dump() for m in messages]
+        messages = [_clean_message(m.model_dump() if hasattr(m, 'model_dump') else m) for m in messages]
         thread_id = getattr(input, 'threadId', None) or getattr(input, 'thread_id', None)
         if isinstance(input, dict):
             thread_id = input.get('threadId') or input.get('thread_id')

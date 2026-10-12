@@ -25,6 +25,9 @@ from src.credentials import (
     server_credentials_available,
 )
 from src.thread_store import get_thread_store
+from src import multimodal_text_files
+
+multimodal_text_files.apply()
 from src.visualization_router import JevVisualizationMiddleware  # noqa: F401  (enabled via JEV_ENABLED=1)
 from src.skill_backend import SKILL_SOURCES, build_agent_backend
 from src.query import query_data
