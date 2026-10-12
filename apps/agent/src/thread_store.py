@@ -73,6 +73,26 @@ class ThreadStore:
             'messages': json.loads(row[2]),
         }
 
+    def rename(self, thread_id, title):
+        with self._lock:
+            cursor = self._connection.execute(
+                'UPDATE threads SET title = ?, updated_at = ? WHERE thread_id = ?',
+                (title, time.time(), thread_id),
+            )
+            self._connection.commit()
+            if cursor.rowcount == 0:
+                return None
+            row = self._connection.execute(
+                'SELECT thread_id, title, updated_at, messages_json FROM threads WHERE thread_id = ?',
+                (thread_id,),
+            ).fetchone()
+        return {
+            'thread_id': row[0],
+            'title': row[1],
+            'updated_at': row[2],
+            'message_count': len(json.loads(row[3])),
+        }
+
     def delete(self, thread_id):
         with self._lock:
             cursor = self._connection.execute('DELETE FROM threads WHERE thread_id = ?', (thread_id,))

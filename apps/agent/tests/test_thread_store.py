@@ -63,6 +63,25 @@ def test_delete_known_and_unknown(store):
     assert store.delete('never-existed') is False
 
 
+def test_rename_updates_title_and_updated_at(store):
+    store.upsert('t1', 'old', [{'id': 'm1', 'role': 'user', 'content': 'a'}])
+    before = store.list_threads()[0]
+    row = store.rename('t1', 'new title')
+    assert row == {
+        'thread_id': 't1',
+        'title': 'new title',
+        'updated_at': row['updated_at'],
+        'message_count': 1,
+    }
+    assert row['updated_at'] > before['updated_at'] or row['updated_at'] == before['updated_at']
+    assert row['title'] == 'new title'
+    assert store.list_threads()[0]['title'] == 'new title'
+
+
+def test_rename_unknown_returns_none(store):
+    assert store.rename('missing', 'nope') is None
+
+
 def test_creates_parent_directory(tmp_path, monkeypatch):
     db_path = tmp_path / 'nested' / 'dir' / 'threads.db'
     monkeypatch.setenv('THREADS_DB', str(db_path))

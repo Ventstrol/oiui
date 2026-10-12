@@ -7,6 +7,7 @@ import os
 import warnings
 
 from dotenv import load_dotenv
+from pydantic import BaseModel
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from copilotkit import CopilotKitMiddleware
@@ -92,6 +93,21 @@ def delete_thread(thread_id: str):
     if not get_thread_store().delete(thread_id):
         return JSONResponse({"detail": "not found"}, status_code=404)
     return {"ok": True}
+
+
+class RenameThreadRequest(BaseModel):
+    title: str
+
+
+@app.patch("/threads/{thread_id}")
+def rename_thread(thread_id: str, request: RenameThreadRequest):
+    title = request.title.strip()
+    if not title:
+        return JSONResponse({"detail": "title required"}, status_code=400)
+    row = get_thread_store().rename(thread_id, title[:200])
+    if row is None:
+        return JSONResponse({"detail": "not found"}, status_code=404)
+    return row
 
 
 add_langgraph_fastapi_endpoint(

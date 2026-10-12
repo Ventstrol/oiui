@@ -66,6 +66,7 @@ export interface ThreadHistoryState {
   switchTo: (threadId: string) => Promise<void>;
   newThread: () => void;
   removeThread: (threadId: string) => Promise<void>;
+  rename: (threadId: string, title: string) => Promise<void>;
   pendingHydrationRef: React.RefObject<PendingHydration | null>;
   hydrateTick: number;
 }
@@ -183,6 +184,26 @@ export function useThreadHistory(): ThreadHistoryState {
     [newThread, refresh],
   );
 
+  // PATCHes the title; on success the updated row replaces the old one in
+  // place (no refetch). 400/404 leave the list untouched.
+  const rename = useCallback(async (id: string, title: string) => {
+    if (!id || !title.trim()) return;
+    try {
+      const response = await fetch(`/threads/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: title.trim() }),
+      });
+      if (!response.ok) return;
+      const updated = (await response.json()) as ThreadSummary;
+      setThreads((list) =>
+        list.map((thread) => (thread.thread_id === id ? updated : thread)),
+      );
+    } catch {
+      // Network failure keeps the last known list.
+    }
+  }, []);
+
   return {
     activeThreadId,
     threads,
@@ -192,6 +213,7 @@ export function useThreadHistory(): ThreadHistoryState {
     newThread,
     removeThread,
     pendingHydrationRef,
+    rename,
     hydrateTick,
   };
 }

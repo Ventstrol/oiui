@@ -109,3 +109,48 @@ def test_capture_snapshot_ignores_other_event_types_and_malformed_payloads(store
 def test_capture_snapshot_requires_thread_id(store):
     _capture_snapshot(SimpleNamespace(), {'type': 'MESSAGES_SNAPSHOT', 'messages': [{'id': 'm1', 'role': 'user', 'content': 'x'}]})
     assert store.list_threads() == []
+
+
+def test_patch_thread_renames(store):
+    store.upsert('t1', 'Hello', [{'id': 'm1', 'role': 'user', 'content': 'Hello'}])
+    async def exercise():
+        async with open_client() as client:
+            response = await client.patch('/threads/t1', json={'title': 'Renamed'})
+            assert response.status_code == 200
+            row = response.json()
+            assert row['thread_id'] == 't1'
+            assert row['title'] == 'Renamed'
+            assert row['message_count'] == 1
+            assert isinstance(row['updated_at'], float)
+            rows = (await client.get('/threads')).json()
+            assert rows[0]['title'] == 'Renamed'
+    asyncio.run(exercise())
+
+
+def test_patch_unknown_thread_is_404(store):
+    async def exercise():
+        async with open_client() as client:
+            response = await client.patch('/threads/nope', json={'title': 'X'})
+        assert response.status_code == 404
+        assert response.json() == {'detail': 'not found'}
+    asyncio.run(exercise())
+
+
+def test_patch_empty_title_is_400(store):
+    store.upsert('t1', 'Hello', [{'id': 'm1', 'role': 'user', 'content': 'Hello'}])
+    async def exercise():
+        async with open_client() as client:
+            response = await client.patch('/threads/t1', json={'title': ''})
+        assert response.status_code == 400
+        assert response.json() == {'detail': 'title required'}
+    asyncio.run(exercise())
+
+
+def test_patch_whitespace_title_is_400(store):
+    store.upsert('t1', 'Hello', [{'id': 'm1', 'role': 'user', 'content': 'Hello'}])
+    async def exercise():
+        async with open_client() as client:
+            response = await client.patch('/threads/t1', json={'title': '   '})
+        assert response.status_code == 400
+        assert response.json() == {'detail': 'title required'}
+    asyncio.run(exercise())

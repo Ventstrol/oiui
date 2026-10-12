@@ -58,6 +58,9 @@ function Harness({ onState }: { onState: (state: ThreadHistory) => void }) {
         hydrateTick={state.hydrateTick}
       />
       <output data-testid="active">{state.activeThreadId ?? "none"}</output>
+      <output data-testid="titles">
+        {state.threads.map((thread) => thread.title).join("|")}
+      </output>
     </>
   );
 }
@@ -206,5 +209,62 @@ describe("useThreadHistory", () => {
       expect(screen.getByTestId("active")).toHaveTextContent("gen-2"),
     );
     expect(localStorage.getItem(LAST_THREAD_KEY)).toBe("gen-2");
+  });
+
+  it("rename PATCHes the title and updates the list in place without refetching", async () => {
+    stubFetch([
+      { method: "GET", url: "/threads", body: threadList },
+      {
+        method: "PATCH",
+        url: "/threads/t-1",
+        body: {
+          thread_id: "t-1",
+          title: "Renamed gears",
+          updated_at: threadList[0].updated_at,
+          message_count: 2,
+        },
+      },
+    ]);
+    let latest: ThreadHistory | undefined;
+    render(<Harness onState={(state) => (latest = state)} />);
+    await waitFor(() =>
+      expect(screen.getByTestId("titles")).toHaveTextContent("Bicycle gears"),
+    );
+    await act(async () => {
+      await latest!.rename("t-1", "Renamed gears");
+    });
+    expect(fetch).toHaveBeenCalledWith("/threads/t-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "Renamed gears" }),
+    });
+    expect(screen.getByTestId("titles")).toHaveTextContent("Renamed gears");
+    // In-place update: the list was fetched exactly once (on mount).
+    const listFetches = vi
+      .mocked(fetch)
+      .mock.calls.filter(([url]) => String(url) === "/threads");
+    expect(listFetches).toHaveLength(1);
+  });
+
+  it("rename leaves the list unchanged when the server rejects with 400", async () => {
+    stubFetch([
+      { method: "GET", url: "/threads", body: threadList },
+      {
+        method: "PATCH",
+        url: "/threads/t-1",
+        status: 400,
+        body: { detail: "empty title" },
+      },
+    ]);
+    let latest: ThreadHistory | undefined;
+    render(<Harness onState={(state) => (latest = state)} />);
+    await waitFor(() =>
+      expect(screen.getByTestId("titles")).toHaveTextContent("Bicycle gears"),
+    );
+    await act(async () => {
+      await latest!.rename("t-1", "Ignored");
+    });
+    expect(screen.getByTestId("titles")).toHaveTextContent("Bicycle gears");
+    expect(screen.getByTestId("titles")).not.toHaveTextContent("Ignored");
   });
 });
