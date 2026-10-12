@@ -63,3 +63,4 @@ bun.lockb
 
 # References
 .references
+apps/agent/data/
