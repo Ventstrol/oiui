@@ -183,6 +183,11 @@ export default function HomePage() {
             />
             <CopilotChat
               threadId={threadHistory.activeThreadId ?? undefined}
+              attachments={{
+                enabled: true,
+                accept: "image/*",
+                maxSize: 10 * 1024 * 1024,
+              }}
               chatView={KeyGatedChatView}
               autoScroll={false}
               scrollView={ReaderScrollView}
